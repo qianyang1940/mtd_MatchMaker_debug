@@ -338,7 +338,7 @@ void match(mtdEvent *event,mtdCellHitVector& matchHitCellsVec)
 					tof2MTD[nTracks]=erasedIter->tof2MTD;
 					leTimediff[nTracks]=erasedIter->leTimediff;
 					gtof2Mtd[nTracks]=erasedIter->gtof2Mtd;
-			//		nTracks++;
+					nTracks++;
 					trackIdVec.push_back(erasedIter->trackIdVec.back());  // merge
 					erasedVec.erase(erasedIter);
 					erasedIter--;
@@ -772,6 +772,7 @@ void Hitsdist(mtdEvent* event,mtdCellHitVector& trackVec)
 		hTracksMatchNumber->Fill(idVec);
 		hTrackEtavsPhi_1->Fill(event->geta[j],event->gphi[j]);
 
+		float projtemz = -999;
 		track.pt = track_loop.mtdpt;
 		track.eta = track_loop.mtdeta;
 		for(int k=0;k<idVec;k++)
@@ -787,7 +788,6 @@ void Hitsdist(mtdEvent* event,mtdCellHitVector& trackVec)
 			hTrackprojZ->Fill(z);
 			if(idVec==2)
 			{
-				float projtemz = -999;
 				if(k=0)projtemz=event->gprojMtdZ[j][k];
 				if(k=1)
 				{
