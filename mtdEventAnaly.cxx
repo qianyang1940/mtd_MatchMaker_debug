@@ -289,9 +289,6 @@ void match(mtdEvent *event,mtdCellHitVector& matchHitCellsVec)
 				}//end of the track loop
 		}//endl of the mathcing
 
-	cout<<"step 1.6"<<endl;
-
-	cout<<"step 1.8"<<endl;
 	mtdCellHitVector tempVec = matchHitCellsVec;
 	mtdCellHitVector erasedVec = tempVec;
 //	cout<<"matchedhit="<<tempVec.size()<<endl;
@@ -605,6 +602,7 @@ bool passEvent(mtdEvent* event )
 
 	if(vzDiff<-3||vzDiff>3)return kFALSE;
 
+
 	return kTRUE;	
 	
 }
@@ -667,7 +665,6 @@ void Hitsdist(mtdEvent* event,mtdCellHitVector& trackVec)
 			clearHits(hit);
 			hits_cut++;
 		}
-
     hHits->Fill(hits);
 	hHits_cut->Fill(hits_cut);
 	//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -859,14 +856,11 @@ void Hitsdist(mtdEvent* event,mtdCellHitVector& trackVec)
 				int projcellIter = *temptrkVecIter.mtdcell.back();
 				while(erasetemptrkVecIter!=erasetemptrk.end())
 				{
-					
-
 				}	
 			}
 				// one track two module loop???????
 				// how to set up the calculation????
 		}
-
 	//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 	//   loop over alll tracks; sort the information of two tracks extrapolations to the same module
 	//   phi difference(phi - cellcenter)
