@@ -91,6 +91,7 @@ struct StMtdTrack{
 	vector<float> mtdProjZ;
 	vector<float> mtdProjLength;
 	vector<float> mtdtof2Mtd;
+
 };
 #ifndef ST_NO_TEMPLATE_DEF_ARGSA
 typedef vector<StMtdTrack> MtdTrack;
@@ -109,6 +110,10 @@ struct StMtdHits{
 	float totEast;
 	float TdiffWest;
 	float TdiffEast;
+	bool HitsFlag;
+	bool HitsNeboirightFlag;
+	bool HitsNeboilegtFlag;
+	bool HitsNeboiFlag;
 };
 #ifndef ST_NO_TEMPLATE_DEF_ARGSA
 typedef vector<StMtdHits> MtdHits;
@@ -168,6 +173,7 @@ TH2D *hDeltazvsStrip;
 TH1D *hTrackprojZ;
 TH2D *hTrackprojZdiffvsPt;
 TH2D *hTrackprojZdiffvsEta;
+TH2D *hHitMulti;
 
 const int moudleNum = 13;
 const double corrdeltaz[moudleNum]={-5.68597,-2.6286,4.60387,-6.072,-5.58134,-2.52121,4.77746,4.98287,-5.89513,-5.43165,-2.37928,5.2931,6.35884};

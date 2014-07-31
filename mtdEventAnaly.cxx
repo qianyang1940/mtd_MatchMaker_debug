@@ -610,7 +610,6 @@ void Hitsdist(mtdEvent* event,mtdCellHitVector& trackVec)
 {
 
 	cout<<"step 1.0"<<endl;
-	
 	StructCellHit track;
 	StMtdTrack track_loop;	
 	StMtdHits hit;
@@ -789,6 +788,8 @@ void Hitsdist(mtdEvent* event,mtdCellHitVector& trackVec)
 	MtdHits erasetempHitsVec = tempHitsVec;
 	MtdTrack temptrkVec = trkVec;	
 	MtdTrack erasetemptrkVec = temptrkVec;
+	MtdHits SingalhitsVec; 
+	StMtdHits hits_temp;
 	while(temHitsVec.size()!=0)
 	{
 		MtdHitsVectorIter tempHitsVecIter = tempHitsVec.begin();
@@ -800,20 +801,25 @@ void Hitsdist(mtdEvent* event,mtdCellHitVector& trackVec)
 		bool HitsNeboileftFlag = kFALSE;
 		bool HitsNeboirightFlag = kFALSE;
 		bool HitsNeboiFlag = kFALSE;
+		int hitsflag = 0;
+		int hitsleftflag = 0;
+		int hitsrightflag = 0;
 		MtdHitsVectorIter erasetempHitsVecIter = erasetempHitsVec.begin();
 		while(erasetempHitsVecIter!=erasetempHitsVec.end())
 		{
 			int erasehitsbkgIter = erasetempHitsVecIter->bkleg;
 			int erasehitsmoduleIter = erasetempHitsVecIter->module;
 			int erasehitscellIter = erasetempHitsVecIter->cell;
-			int hitsflag = 0;
-			int hitsleftflag = 0;
-			int hitsrightflag = 0;
-			if(hitsbkgIter==erasehitsmoduleIter)
+			if(hitsbkgIter==erasehitsbkgIter)
 			{
 				if(hitsmoduleIter==erasehitsmoduleIter)
 				{
 					hitsflag++;
+					if(hitsflag==1)
+					{
+						erasetempHitsVec.erase(erasetempHitsVecIter);
+						erasetempHitsVecIter--;
+					}
 				}
 				if(hitmoduleIter==(erasehitsmoduleIter-1))
 				{
@@ -823,44 +829,147 @@ void Hitsdist(mtdEvent* event,mtdCellHitVector& trackVec)
 				{
 					hitsrightflag++;
 				}
-				erasetempHitsVec.erase(erasetempHitsVecIter);
-				erasetempHitsVec--;
 			}
-			erasetempHitsVec++;
+			erasetempHitsVecIter++;
 		}
+	    hHitsMulti->Fill(2,hitsflag);
+	    hHitsMulti->Fill(3,hitsliftflag);
+	    hHitsMulti->Fill(4,hitsrightflag);
 		if(hitsflag==1)
 		{
 			if((hitsrightflag+hitsleftflag)==0)HitsFlag=kTRUE;
 			if(hitsrightflag>0&&hitsleftflag==0)HitsNeboirightFlag=kTRUE;
 			if(hitsrightflag==0&&hitsleftflag>0)HitsNeboileftFlag=kTRUE;
 			if(hitsrightflag>0&&hitsleftflag>0)HitsNeboiFlag=kTRUE;
-		}
 
+			hits_temp.bkleg = hitsbkgIter;
+			hits_temp.module = hitsmoduleIter;
+			hits_temp.cell = hitsmoduleIter;
+			hits_temp.leTimeWest = tempHitsVecIter->leTimeWest;
+			hits_temp.leTimeEast = tempHitsVecIter->leTimeEast;
+			hits_temp.totWest = tempHitsVecIter->totWest;
+			hits_temp.totEast = tempHitsVecIter->totEast;
+			hits_temp.TdiffWest = tempHitsVecIter->TdiffWest;
+			hits_temp.TdiffEast = tempHitsVecIter->TdiffEast;
+			hits_temp.HitsFlag = HitsFlag;
+			hits_temp.HitsNeboirightFlag = HitsNeboirightFlag;
+			hits_temp.HitsNeboileftFlag = HitsNeboileftFlag;
+			hits_temp.HitsNeboiFlag = HitsNeboiFlag;
+			SingalhitsVec.push_back(hits_temp);
+		}
+		temHitsVec = erasetempHitsVec;
 	}
 
-		MtdTrack temptrkVec = trkVec;	
+		MtdTrack temptrkVec = trkVec;
 		MtdTrack erasetemptrkVec = temptrkVec;
+		MtdTrack SingaltrackVec; 
+		StMtdTrack track_temp;
 		while(temptrkVec.size()!=0)
 		{
 			MtdTrackVectorIter temptrkVecIter = temptrkVec.begin();
-			cout<<"projtrk hits in moudle :"<<*temptrkVecIter.mtdBL.size()<<endl;
+			cout<<"projtrk hits in moudle :"<<*temptrkVecIter.mtdmod.size()<<endl;
 			MtdTrackVectorIter erasetemptrkVecIter = erasetemptrkVec.begin();
 			bool trackFlag = kFALSE;
 			bool trackNeboileftFlag = kFALSE;
 			bool trackNeboirightFlag = kFALSE;
 			bool trackNeboiFlag = kFALSE;
-			if(*temptrkVecIter.mtdBL.size()==1)
+			int projbklgIter = (int)(*temptrkVecIter.mtdBL.back());
+			int projmoduleIter = (int)(*temptrkVecIter.mtdmod.back());
+			int projcellIter = (int)(*temptrkVecIter.mtdcell.back());
+			int protrackId = (int)(temptrkVecIter->trackId);
+			float projphi = (float)(*temptrkVecIter.mtdProjphi.back());
+			float projz = (float)(*temptrkVecIter.mtdProjZ.back());
+			float projlength = (float)(*temptrkVecIter.mtdProjLength.back());
+			float tof2Mtd = (float)(*temptrkVecIter.mtdtif2Mtd.back());
+			idVector trackIdC_sort;
+			idVector trackIdL_sort;
+			idVector trackIdR_sort;
+			int trackflag=0;
+		   	int trackleftflag=0;
+			int trackrightflag=0;	
+			while(erasetemptrkVecIter!=erasetemptrk.end())
 			{
-				int projbklgIter = *temptrkVecIter.mtdBL.back();
-				int projmoduleIter = *temptrkVecIter.mtdmod.back();
-				int projcellIter = *temptrkVecIter.mtdcell.back();
-				while(erasetemptrkVecIter!=erasetemptrk.end())
+				int erabklgIter = (int)(*erasetemptrkVecIter.mtdBL.back());
+				int eramodulegIter = (int)(*erasetemptrkVecIter.mtdmod.back());
+				int eracellIter = (int)(*erasetemptrkVecIter.mtdcell.back());
+				int eratrackId = (int)(erasetemptrkVecIter->trackId);
+				if(projbklgIter==erasetemptrk)
 				{
-				}	
+					if(projmoduleIter==eramodulegIter)
+					{
+						trackflag++;
+						trackIdC_sort.push_back(eratrackId);
+						if(trackflag==1)
+						{
+							erasetemptrk.erase(erasetemptrkVecIter);
+							erasetemptrkVecIter--;
+						}
+					}
+					if(projmoduleIter==(eramodulegIter-1))
+					{
+						trackleftflag++;
+						trackIdL_sort.push_back(eratrackId);
+						if(trackleftflag==1)
+						{
+							trackIdL_sort.push_back(protrackId);
+						}
+					}
+					if(projmoduleIter==(eramodulegIter+1))
+					{
+						trackrightflag++;
+						trackIdL_sort.push_back(eratrackId);
+						if(trackrightflag==1)
+						{
+							trackIdR_sort.push_back(protrackId);
+						}
+					}
+
+				}
+				erasetemptrkVecIter++;
+			}//endl of the erase loop	
+			sort(trackIdC_sort);
+			sort(trackIdL_sort);
+			sort(trackIdR_sort);
+			trackIdC_sort.erase(unique(trackIdC_sort.begin(),trackIdC_sort.end()),trackIdC_sort.end());
+			trackIdL_sort.erase(unique(trackIdL_sort.begin(),trackIdL_sort.end()),trackIdL_sort.end());
+			trackIdR_sort.erase(unique(trackIdR_sort.begin(),trackIdR_sort.end()),trackIdR_sort.end());
+			int trackIdC = (int)trackIdC_sort.size();
+			int trackIdL = (int)trackIdL_sort.size();
+			int trackIdR = (int)trackIdR_sort.size();
+			if(trackflag==1||(trackflag==2&&trackIdC==1))
+			{
+				if((trackleftflag+trackrightflag)==0)trackFlag=kTRUE;
+				if((trackleftflag>0)&&(trackIdL==1)&&(trackrightflag==0))trackFlag=kTRUE;
+				if((trackrightflag>0)&&(trackIdR==1)&&(trackleftflag==0))trackFlag=kTRUE;
+				if(((trackleftflag>0)&&(trackIdL>1))&&(trackrightflag==0||trackIdR==1))trackNeboileftFlag=kTRUE;
+				if(((trackrightflag>0)&&(trackIdR>1))&&(trackleftflag==0||trackIdL==1))trackNeboirightFlag=kTRUE;
+				if(((trackrightflag>0)&&(trackIdR>1))&&(trackleftflag>0||trackIdL>1))trackNeboiFlag=kTRUE;
+				track_temp.mtdpt=temptrkVecIter->mtdpt;
+				track_temp.mtdeta=temptrkVecIter->mtdeta;
+				track_temp.mtdphi=temptrkVecIter->mtdphi;
+				track_temp.mtdnFtPts= temptrkVecIter->mtdnFtPts;
+				track_temp.mtdnDedxPts=temptrkVecIter->mtdnDedxPts;
+				track_temp.mtddca=temptrkVecIter->mtddca;
+				track_temp.mtdnSigmaPi=temptrkVecIter->mtdnSigmaPi;	
+				track_temp.trackId=temptrkVecIter.trackId;
+				track_temp.mtdBL.push_back(projbklgIter);
+				track_temp.mtdmod.push_back(projmoduleIter);
+				track_temp.mtdProjphi.push_back(projphi);
+				track_temp.mtdProjZ.push_back(projz);
+				track_temp.mtdProjLength.push_back(projlength);
+				track_temp.mtdProjtof2Mtd.push_back(tof2Mtd);
+				track_temp.trackFlag=trackFlag;
+				track_temp.trackNeboileftFlag=trackNeboileftFlag;
+				track_temp.trackNeboirightFlag=trackNeboirightFlag;
+				track_temp.trackNeboiFlag=trackNeboiFlag;
+				SingaltrackVec.push_back(track_temp);
+
 			}
-				// one track two module loop???????
-				// how to set up the calculation????
-		}
+			trackIdC_sort.clear();
+			trackIdR_sort.clear();
+			trackIdL_sort.clear();
+			temptrkVec=erasetemptrk;
+		}//endl of the track loop
 	//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 	//   loop over alll tracks; sort the information of two tracks extrapolations to the same module
 	//   phi difference(phi - cellcenter)
@@ -983,6 +1092,7 @@ void bookHistograms()
 	hTrackprojZ = new TH1D("hTrackprojZ","projz distribution",8000,-400,400);
 	hTrackprojZdiffvsEta = new TH2D("hTrackprojZdiffvsEta","zdiff vs eta;eta,zdiff",20,-1,1,3000,-150,150);
 	hTrackprojZdiffvsPt = new TH2D("hTrackprojZdiffvsPt","zdiff vs p_{T};p_{T} GeV/c,zdiff",300,0,30,3000,-150,150);
+	hHitsMulti = new TH2D("hHitsMulti","hits surranding hits distrubution;;hits",10,0,10,100,0,100);
 }
 void writeHistograms(char* outFile)
 {
@@ -1037,6 +1147,7 @@ void writeHistograms(char* outFile)
 	hTrackprojZ->Write();
 	hTrackprojZdiffvsEta->Write();
 	hTrackprojZdiffvsPt->Write();
+	hHitsMulti->Write();
 } 
 void bookmtdRelatTree(char* outFile)
 {
