@@ -66,6 +66,8 @@ struct StructCellHit{
 	Int_t index2MtdHit;
 	Double_t theta;
 	float pathLength;
+	bool MatchC;
+	bool MatchN;
 };
 #ifndef ST_NO_TEMPLATE_DEF_ARGSA
 typedef vector<StructCellHit> mtdCellHitVector;
@@ -91,6 +93,10 @@ struct StMtdTrack{
 	vector<float> mtdProjZ;
 	vector<float> mtdProjLength;
 	vector<float> mtdtof2Mtd;
+	bool trackFlag;
+	bool trackNeboirightFlag;
+	bool trackNeboileftFlag;
+	bool trackNeboiFlag;
 
 };
 #ifndef ST_NO_TEMPLATE_DEF_ARGSA
@@ -112,7 +118,7 @@ struct StMtdHits{
 	float TdiffEast;
 	bool HitsFlag;
 	bool HitsNeboirightFlag;
-	bool HitsNeboilegtFlag;
+	bool HitsNeboileftFlag;
 	bool HitsNeboiFlag;
 };
 #ifndef ST_NO_TEMPLATE_DEF_ARGSA
@@ -139,6 +145,7 @@ TH1D *hTrackMatchHits;
 TH2D *hRefmultvsTracks;
 TH1D *hRefmult;
 TH1D *hTracksPerHit;
+TH1D *hTracksPerHit_sort;
 TH1D *hHits;
 TH1D *hHits_cut;
 TH1D *hTracks;
@@ -151,6 +158,8 @@ TH1D *hZdiff;
 TH1D *hPhidiff;
 TH2D *hPhidis;
 TH2D *hTimediffvsPt;
+
+TH1D *hMatchSource;
 
 
 TH2D *hTimediff_2tracks;
@@ -173,7 +182,8 @@ TH2D *hDeltazvsStrip;
 TH1D *hTrackprojZ;
 TH2D *hTrackprojZdiffvsPt;
 TH2D *hTrackprojZdiffvsEta;
-TH2D *hHitMulti;
+TH2D *hHitsMulti;
+TH2D *hTracksSur;
 
 const int moudleNum = 13;
 const double corrdeltaz[moudleNum]={-5.68597,-2.6286,4.60387,-6.072,-5.58134,-2.52121,4.77746,4.98287,-5.89513,-5.43165,-2.37928,5.2931,6.35884};

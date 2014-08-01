@@ -60,19 +60,25 @@ bool pairCosmic(mtdEvent* event,Int_t i);
 void match(mtdEvent* event,mtdCellHitVector& matchHitCellsVec);
 //*************** mtd correction parameters ***************
 const Int_t maxnBins = 100;
+const int BKLGNUM=30;
+const int MODUNUM=30;
 Float_t t0Corr[30][5][12];
 Int_t   nBins[30][5];
 Float_t tot[30][5][maxnBins];
 Float_t tCorr[30][5][maxnBins];
 Float_t zCenCorr[30][5];
 Float_t tofOffsetCorr[30][5];
-bool nNeighbors = kFALSE;
+float TacdiffWestUp[BKLGNUM][MODUNUM];
+float TacdiffWestbottom[BKLGNUM][MODUNUM];
+float TacdiffEastUp[BKLGNUM][MODUNUM];
+float TacdiffEastbottom[BKLGNUM][MODUNUM];
+bool nNeighbors = kTRUE;
 //*********************************************************
 
 Int_t main(int argc, char **argv)
 {
 	if(argc!=3 && argc!=1)return 0;
-        const Char_t *inFile="test.list";
+        const Char_t *inFile="data.list";
 	char *outFile = "huhu";
 
 	TString *string;
@@ -249,26 +255,28 @@ void match(mtdEvent *event,mtdCellHitVector& matchHitCellsVec)
 						float projMtdZ = event->gprojMtdZ[j][k];
 						double gtof2Mtd = event->gtof2Mtd[j][k];
 						bool isMatch = kFALSE;	
+						bool isMatchNebi = kFALSE;
 						
 						if(backleg==gprojMtdBackLeg&&module==gprojMtdModule)
 						{
-							isMatch = true;
+							isMatch = kTRUE;
 						}
 						if(nNeighbors)
 						{
 							if(backleg==gprojMtdBackLeg && module!=gprojMtdModule){
 								if(zdaq<0){
-									if((module-1>0)&&((module-1)==gprojMtdModule)) isMatch = true;
+									if((module-1>0)&&((module-1)==gprojMtdModule)) isMatchNebi = kTRUE;
 								}else if(zdaq==0){
-									if(abs(module-gprojMtdModule)<=1) isMatch = true;
+									if(abs(module-gprojMtdModule)<=1) isMatchNebi = kTRUE;
 								}else{
-									if((module+1<6)&&((module+1)==gprojMtdModule)) isMatch = true;
+									if((module+1<6)&&((module+1)==gprojMtdModule)) isMatchNebi = kTRUE;
 								}
 							}
 						}
 						/////////////////////////////////////////////////////
-							if(isMatch)
+							if(isMatch||isMatchNebi)
 							{
+									cout<<"matchflag1="<<isMatch<<endl;
 
 								cellHit.pt = pt;
 								cellHit.tof2MTD = tof2MTD;
@@ -283,6 +291,8 @@ void match(mtdEvent *event,mtdCellHitVector& matchHitCellsVec)
 								cellHit.projMtdPhi = projMtdPhi;
 								cellHit.phi = phi;
 								cellHit.trackIdVec.push_back(gtrackindex);
+								cellHit.MatchC=isMatch;
+								cellHit.MatchN=isMatchNebi;
 								matchHitCellsVec.push_back(cellHit);
 							}	
 					}//endl of the idvec					
@@ -300,6 +310,7 @@ void match(mtdEvent *event,mtdCellHitVector& matchHitCellsVec)
 	 while (tempVec.size() != 0) 
 		{
 			Int_t nTracks = 0;
+			Int_t nTracks_sort = 0;
 			idVector trackIdVec;
 			const int arrynumber = 20;
 			Int_t bckleg[arrynumber] ={0};
@@ -314,6 +325,8 @@ void match(mtdEvent *event,mtdCellHitVector& matchHitCellsVec)
 			Int_t inode[arrynumber] ={0};
 			Float_t tof2MTD[arrynumber] = {0};
 			Float_t gtof2Mtd[arrynumber] ={0};
+			bool MatchCflag[arrynumber]={kFALSE};
+			bool MatchNflag[arrynumber]={kFALSE};
 
 			mtdCellHitVectorIter tempIter=tempVec.begin();
 			mtdCellHitVectorIter erasedIter=erasedVec.begin();
@@ -334,6 +347,8 @@ void match(mtdEvent *event,mtdCellHitVector& matchHitCellsVec)
 					tof2MTD[nTracks]=erasedIter->tof2MTD;
 					leTimediff[nTracks]=erasedIter->leTimediff;
 					gtof2Mtd[nTracks]=erasedIter->gtof2Mtd;
+					MatchCflag[nTracks]=erasedIter->MatchC;
+					MatchNflag[nTracks]=erasedIter->MatchN;
 					nTracks++;
 					trackIdVec.push_back(erasedIter->trackIdVec.back());  // merge
 					erasedVec.erase(erasedIter);
@@ -345,8 +360,13 @@ void match(mtdEvent *event,mtdCellHitVector& matchHitCellsVec)
 			idVector tmpIdVec = trackIdVec;
 			sort(tmpIdVec.begin(),tmpIdVec.end());
 			tmpIdVec.erase(unique(tmpIdVec.begin(),tmpIdVec.end()),tmpIdVec.end());
-			nTracks = tmpIdVec.size();
-			if(nTracks==1)
+			nTracks_sort = tmpIdVec.size();
+			if(nTracks>0)
+			{		
+				hTracksPerHit->Fill(nTracks);
+				hTracksPerHit_sort->Fill(nTracks_sort);
+			}
+			if(nTracks_sort==1)
 			{
 				double hitZ = (modl[0]-3)*87.-leTimediff[0]/mvDrift*1e3;
 				double projZ=projmtdz[0];
@@ -359,46 +379,101 @@ void match(mtdEvent *event,mtdCellHitVector& matchHitCellsVec)
 				double pT = pt[0];
 				hdeltaR_singlevsPt->Fill(deltaR,pT);
 				hTimediffvsPt->Fill(tempIter->tof2MTD-tempIter->gtof2Mtd,pT);
-
 				Int_t moduleNum = 0;
 				if((tempIter->tof2MTD-tempIter->gtof2Mtd)>9||(tempIter->tof2MTD-tempIter->gtof2Mtd)<11)
 				{
 					moduleNum= (tempIter->backleg-26)*5+tempIter->module;
 					hModule->Fill(moduleNum);
 				}	
+				if(nTracks==1)
+				{	
+					cout<<"matchflag3="<<MatchCflag[nTracks]<<endl;
+					if(MatchCflag[nTracks-1]==kTRUE)
+					{
+						hMatchSource->Fill(2);
+					}
+					else
+					{
+						hMatchSource->Fill(3);
+					}
+				}
+				if(nTracks==2)
+				{
+					if(MatchCflag[nTracks]==kTRUE)
+					{
+						hMatchSource->Fill(4);
+					}
+					else
+					{
+						hMatchSource->Fill(5);
+					}
+				}
 			}
 
-			if(nTracks==2) 
+			if(nTracks_sort==2) 
 			{
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-				mFlag = 1;
-				Double_t hitZ = (modl[0]-3)*87.-leTimediff[0]/mvDrift*1e3;
-			//	Double_t projZ=((((projmtdz[0]+2.5*87.)/87.+1)-(int)((projmtdz[0]+2.5*87.)/87.+1))-0.5)*87.;
-				Double_t projZ = projmtdz[0];
-				Double_t deltaZ = hitZ-projZ;
-				int index=999;
-				index = bckleg[0]*5+modl[0];
-			//	deltaZ = deltaZ + corrdeltaz[index];
-				double deltaR1 = deltaZ;
-				hDeltazvsStrip->Fill(cells[0]+12*(modl[0]-1)+60*(bckleg[0]-1),deltaR1);	 
+				if(nTracks==2)
+				{
+					mFlag = 1;
+					Double_t hitZ = (modl[0]-3)*87.-leTimediff[0]/mvDrift*1e3;
+					//	Double_t projZ=((((projmtdz[0]+2.5*87.)/87.+1)-(int)((projmtdz[0]+2.5*87.)/87.+1))-0.5)*87.;
+					Double_t projZ = projmtdz[0];
+					Double_t deltaZ = hitZ-projZ;
+					int index=999;
+					index = bckleg[0]*5+modl[0];
+					//	deltaZ = deltaZ + corrdeltaz[index];
+					double deltaR1 = deltaZ;
+					hitZ = (modl[1]-3)*87.-leTimediff[1]/mvDrift*1e3;
+					projZ = projmtdz[1];
+					deltaZ = hitZ-projZ;
+					index =999;
+					index = bckleg[1]*5+modl[1];
+					//	deltaZ = deltaZ + corrdeltaz[index];
+					double deltaR2 = deltaZ;
+					float tdiff1 = TMath::Abs(tof2MTD[0]-gtof2Mtd[0]+0.8751);
+					float tdiff2 = TMath::Abs(tof2MTD[1]-gtof2Mtd[1]+0.8751);
+					float tdiff3 = tof2MTD[0]-gtof2Mtd[0];
+					float tdiff4 = tof2MTD[1]-gtof2Mtd[1];
+
+					if(MatchCflag[0]==kTRUE&&MatchCflag[1]==kTRUE)
+					{
+						hMatchSource->Fill(7);
+					}
+					if((MatchCflag[0]+MatchCflag[1])==1)
+					{
+						hMatchSource->Fill(8);
+						if(TMath::Abs(deltaR1)>TMath::Abs(deltaR2))
+						{
+
+							hTimediff_Rcut_l->Fill(tdiff3,pt[0]);
+							hTimediff_Rcut_s->Fill(tdiff4,pt[1]);
+							hdeltaR_svsPt->Fill(deltaR2,pt[1]);
+							hdeltaR_lvsPt->Fill(deltaR1,pt[0]);
+						}
+						else
+						{
+							hdeltaR_lvsPt->Fill(deltaR2,pt[1]);
+							hdeltaR_svsPt->Fill(deltaR1,pt[0]);
+							hTimediff_Rcut_l->Fill(tdiff4,pt[1]);
+							hTimediff_Rcut_s->Fill(tdiff3,pt[0]);
 
 
-				hitZ = (modl[1]-3)*87.-leTimediff[1]/mvDrift*1e3;
-				projZ = projmtdz[1];
-				deltaZ = hitZ-projZ;
-				index =999;
-				index = bckleg[1]*5+modl[1];
-			//	deltaZ = deltaZ + corrdeltaz[index];
+						}
+						if((MatchCflag[0]+MatchCflag[1])==0)
+						{
+							hMatchSource->Fill(9);
+						}
+					}
+				}
 
-				double deltaR2 = deltaZ;
-				hDeltazvsStrip->Fill(cells[1]+12*(modl[1]-1)+60*(bckleg[1]-1),deltaR2);	 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+/*
 				Float_t tdiff1 = TMath::Abs(tof2MTD[0]-gtof2Mtd[0]+0.8751);
 				Float_t tdiff2 = TMath::Abs(tof2MTD[1]-gtof2Mtd[1]+0.8751);
-				//if(TMath::Abs(delta1)>11&&TMatch::Abs(delta2))
 				Float_t tdiff3 = tof2MTD[0]-gtof2Mtd[0];
 				Float_t tdiff4 = tof2MTD[1]-gtof2Mtd[1];
-				//{
+
 				hTimediff_2tracks->Fill(tdiff3,pt[0]);
 				hTimediff_2tracks->Fill(tdiff4,pt[1]);
 				hdeltaR_both->Fill(deltaR1,pt[0]);
@@ -446,7 +521,7 @@ void match(mtdEvent *event,mtdCellHitVector& matchHitCellsVec)
 					hTimediff_Rcut_l->Fill(tdiff4,pt[1]);
 					hTimediff_Rcut_s->Fill(tdiff3,pt[0]);
 				}
-			//	}
+				*/
 			}
 			Int_t FiredStripNumber = (tempIter->cell)+(tempIter->module-1)*12+(tempIter->backleg-1)*60;//test Qian Yang
 			double dphi = 12./180.*TMath::Pi();
@@ -460,8 +535,7 @@ void match(mtdEvent *event,mtdCellHitVector& matchHitCellsVec)
 			if(nTracks>0)
 			{
 			hMatchEtavsPhi->Fill(tempIter->module,tempIter->backleg);
-			hNumberofMatchHits->Fill(FiredStripNumber,nTracks);
-			hTracksPerHit->Fill(nTracks);
+			hNumberofMatchHits->Fill(FiredStripNumber,nTracks_sort);
 			}
 
 			tempVec = erasedVec;
@@ -558,6 +632,33 @@ bool loadCorrPars(){
 	cout<<endl;
 	cout<<endl;
 
+	indata.open("/star/u/tc88qy/data01/mtd/out/ana_1/Timediff/timediff_cp.dat");
+	cout<<"************* Load tofOffset correction parameters start ************"<<endl;
+	if(!indata.is_open()){
+		cout<<"Failed to open the tofOffset correction file !!!"<<endl;
+		return kFALSE;
+	}
+	memset(TacdiffWestUp,0,sizeof(TacdiffWestUp));
+	memset(TacdiffWestbottom,0,sizeof(TacdiffWestbottom));
+	memset(TacdiffEastUp,0,sizeof(TacdiffEastUp));
+	memset(TacdiffEastbottom,0,sizeof(TacdiffEastbottom));
+	while(indata>>ib>>it){
+		float mean;
+		float sigma;
+		indata>>mean;
+		indata>>sigma;
+		TacdiffWestUp[ib-1][it-1]=mean+3*sigma;
+		TacdiffWestbottom[ib-1][it-1]=mean-3*sigma;
+		indata>>mean;
+		indata>>sigma;
+		TacdiffEastUp[ib-1][it-1]=mean+3*sigma;
+		TacdiffEastbottom[ib-1][it-1]=mean-3*sigma;
+	};
+	indata.close();
+	cout<<"************* Load tofOffset correction parameters done ************"<<endl;
+	cout<<endl;
+	cout<<endl;
+	
 	cout<<"Load Parameters DONE !!!"<<endl;
 
 	return kTRUE;
@@ -586,10 +687,6 @@ bool passEvent(mtdEvent* event )
 					TriggerFlag = kTRUE;
 				}
 		}
-//	for(Int_t i =0 ; i<nTrgIds;i++)
-//		{
-//			cout<<"nTrgIds:trgId="<<nTrgIds<<":"<<trgId[i]<<endl;
-//		};
 	if(TMath::Abs(vx)<1e-5&&TMath::Abs(vy)<1e-5&&TMath::Abs(vz)<1e-5)return kFALSE;
 
 	hVertexXY->Fill(vx,vy);
@@ -620,9 +717,9 @@ void Hitsdist(mtdEvent* event,mtdCellHitVector& trackVec)
 	Int_t refMult = event->refMult;	
 	Int_t hits=0;
 	Int_t hits_cut=0;
-	Int_t _bkleg[10]={0};
-	Int_t _module[10]={0};
-	Int_t _cell[10]={10};
+	Int_t _bkleg[200]={0};
+	Int_t _module[200]={0};
+	Int_t _cell[200]={0};
 	for(Int_t i=0;i<nMtdHits;i++)
 		{
 			hit.bkleg = event->backleg[i];
@@ -666,12 +763,13 @@ void Hitsdist(mtdEvent* event,mtdCellHitVector& trackVec)
 		}
     hHits->Fill(hits);
 	hHits_cut->Fill(hits_cut);
+	cout<<"step 2.0"<<endl;
 	//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 	//   for those events have two mtd hits 
 	//   filling histo to get the hits pros information
 	//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 	for(int i=0;i<hits_cut;i++)
-		for(int j =i+1;hits_cut;i++)
+		for(int j =i+1;j<hits_cut;j++)
 		{
 			int hitsdiff = 7;
 			//int stripdiff = 0;
@@ -719,6 +817,7 @@ void Hitsdist(mtdEvent* event,mtdCellHitVector& trackVec)
 	//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 	//   loop all tracks and sort in the vector
 	//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	cout<<"step 3.0"<<endl;
 	Int_t numberoftrack=0;
 	for(Int_t j=0;j<ngTrks;j++)
 	{
@@ -768,8 +867,8 @@ void Hitsdist(mtdEvent* event,mtdCellHitVector& trackVec)
 				if(k==0)projtemz=event->gprojMtdZ[j][k];
 				if(k==1)
 				{
-					hTrackprojZdiffvsEta->Fill(event->geta[j],event->gprojMtdZ[j][k]-projtemz)
-					hTrackprojZdiffvsPt->Fill(event->gpt[j],event->gprojMtdZ[j][k]-projtemz)
+					hTrackprojZdiffvsEta->Fill(event->geta[j],event->gprojMtdZ[j][k]-projtemz);
+					hTrackprojZdiffvsPt->Fill(event->gpt[j],event->gprojMtdZ[j][k]-projtemz);
 				}
 			}
 			hTrackEtavsPhi->Fill(event->gprojMtdModule[j][k],event->gprojMtdBackLeg[j][k]);
@@ -790,7 +889,7 @@ void Hitsdist(mtdEvent* event,mtdCellHitVector& trackVec)
 	MtdTrack erasetemptrkVec = temptrkVec;
 	MtdHits SingalhitsVec; 
 	StMtdHits hits_temp;
-	while(temHitsVec.size()!=0)
+	while(tempHitsVec.size()!=0)
 	{
 		MtdHitsVectorIter tempHitsVecIter = tempHitsVec.begin();
 
@@ -821,11 +920,11 @@ void Hitsdist(mtdEvent* event,mtdCellHitVector& trackVec)
 						erasetempHitsVecIter--;
 					}
 				}
-				if(hitmoduleIter==(erasehitsmoduleIter-1))
+				if(hitsmoduleIter==(erasehitsmoduleIter-1))
 				{
 					hitsleftflag++;
 				}
-				if(hitmoduleIter==(erasehitsmoduleIter+1))
+				if(hitsmoduleIter==(erasehitsmoduleIter+1))
 				{
 					hitsrightflag++;
 				}
@@ -833,7 +932,7 @@ void Hitsdist(mtdEvent* event,mtdCellHitVector& trackVec)
 			erasetempHitsVecIter++;
 		}
 	    hHitsMulti->Fill(2,hitsflag);
-	    hHitsMulti->Fill(3,hitsliftflag);
+	    hHitsMulti->Fill(3,hitsleftflag);
 	    hHitsMulti->Fill(4,hitsrightflag);
 		if(hitsflag==1)
 		{
@@ -857,43 +956,43 @@ void Hitsdist(mtdEvent* event,mtdCellHitVector& trackVec)
 			hits_temp.HitsNeboiFlag = HitsNeboiFlag;
 			SingalhitsVec.push_back(hits_temp);
 		}
-		temHitsVec = erasetempHitsVec;
+		tempHitsVec = erasetempHitsVec;
 	}
-
-		MtdTrack temptrkVec = trkVec;
-		MtdTrack erasetemptrkVec = temptrkVec;
+/*
+		MtdTrack temptrkVec_temp = trkVec;
+		MtdTrack erasetemptrkVec_temp = temptrkVec_temp;
 		MtdTrack SingaltrackVec; 
 		StMtdTrack track_temp;
-		while(temptrkVec.size()!=0)
+		while(temptrkVec_temp.size()!=0)
 		{
-			MtdTrackVectorIter temptrkVecIter = temptrkVec.begin();
-			cout<<"projtrk hits in moudle :"<<*temptrkVecIter.mtdmod.size()<<endl;
-			MtdTrackVectorIter erasetemptrkVecIter = erasetemptrkVec.begin();
+			MtdTrackVectorIter temptrkVecIter = temptrkVec_temp.begin();
+			cout<<"projtrk hits in moudle :"<<(temptrkVecIter->mtdmod).size()<<endl;	
+			MtdTrackVectorIter erasetemptrkVecIter = erasetemptrkVec_temp.begin();
 			bool trackFlag = kFALSE;
 			bool trackNeboileftFlag = kFALSE;
 			bool trackNeboirightFlag = kFALSE;
 			bool trackNeboiFlag = kFALSE;
-			int projbklgIter = (int)(*temptrkVecIter.mtdBL.back());
-			int projmoduleIter = (int)(*temptrkVecIter.mtdmod.back());
-			int projcellIter = (int)(*temptrkVecIter.mtdcell.back());
+			int projbklgIter = (int)((temptrkVecIter->mtdBL).back());
+			int projmoduleIter = (int)((temptrkVecIter->mtdmod).back());
+			int projcellIter = (int)((temptrkVecIter->mtdcell).back());
 			int protrackId = (int)(temptrkVecIter->trackId);
-			float projphi = (float)(*temptrkVecIter.mtdProjphi.back());
-			float projz = (float)(*temptrkVecIter.mtdProjZ.back());
-			float projlength = (float)(*temptrkVecIter.mtdProjLength.back());
-			float tof2Mtd = (float)(*temptrkVecIter.mtdtif2Mtd.back());
+			float projphi = (float)((temptrkVecIter->mtdProjphi).back());
+			float projz = (float)((temptrkVecIter->mtdProjZ).back());
+			float projlength = (float)((temptrkVecIter->mtdProjLength).back());
+			float tof2Mtd = (float)((temptrkVecIter->mtdtof2Mtd).back());
 			idVector trackIdC_sort;
 			idVector trackIdL_sort;
 			idVector trackIdR_sort;
 			int trackflag=0;
 		   	int trackleftflag=0;
 			int trackrightflag=0;	
-			while(erasetemptrkVecIter!=erasetemptrk.end())
+			while(erasetemptrkVecIter!=erasetemptrkVec_temp.end())
 			{
-				int erabklgIter = (int)(*erasetemptrkVecIter.mtdBL.back());
-				int eramodulegIter = (int)(*erasetemptrkVecIter.mtdmod.back());
-				int eracellIter = (int)(*erasetemptrkVecIter.mtdcell.back());
+				int erabklgIter = (int)((erasetemptrkVecIter->mtdBL).back());
+				int eramodulegIter = (int)((erasetemptrkVecIter->mtdmod).back());
+				int eracellIter = (int)((erasetemptrkVecIter->mtdcell).back());
 				int eratrackId = (int)(erasetemptrkVecIter->trackId);
-				if(projbklgIter==erasetemptrk)
+				if(projbklgIter==erabklgIter)
 				{
 					if(projmoduleIter==eramodulegIter)
 					{
@@ -901,7 +1000,7 @@ void Hitsdist(mtdEvent* event,mtdCellHitVector& trackVec)
 						trackIdC_sort.push_back(eratrackId);
 						if(trackflag==1)
 						{
-							erasetemptrk.erase(erasetemptrkVecIter);
+							erasetemptrkVec_temp.erase(erasetemptrkVecIter);
 							erasetemptrkVecIter--;
 						}
 					}
@@ -927,15 +1026,18 @@ void Hitsdist(mtdEvent* event,mtdCellHitVector& trackVec)
 				}
 				erasetemptrkVecIter++;
 			}//endl of the erase loop	
-			sort(trackIdC_sort);
-			sort(trackIdL_sort);
-			sort(trackIdR_sort);
+			sort(trackIdC_sort.begin(),trackIdC_sort.end());
+			sort(trackIdL_sort.begin(),trackIdL_sort.end());
+			sort(trackIdR_sort.begin(),trackIdR_sort.end());
 			trackIdC_sort.erase(unique(trackIdC_sort.begin(),trackIdC_sort.end()),trackIdC_sort.end());
 			trackIdL_sort.erase(unique(trackIdL_sort.begin(),trackIdL_sort.end()),trackIdL_sort.end());
 			trackIdR_sort.erase(unique(trackIdR_sort.begin(),trackIdR_sort.end()),trackIdR_sort.end());
 			int trackIdC = (int)trackIdC_sort.size();
 			int trackIdL = (int)trackIdL_sort.size();
 			int trackIdR = (int)trackIdR_sort.size();
+	    	hTracksSur->Fill(2,trackIdC);
+	    	hTracksSur->Fill(3,trackIdL);
+	    	hTracksSur->Fill(4,trackIdR);
 			if(trackflag==1||(trackflag==2&&trackIdC==1))
 			{
 				if((trackleftflag+trackrightflag)==0)trackFlag=kTRUE;
@@ -951,13 +1053,13 @@ void Hitsdist(mtdEvent* event,mtdCellHitVector& trackVec)
 				track_temp.mtdnDedxPts=temptrkVecIter->mtdnDedxPts;
 				track_temp.mtddca=temptrkVecIter->mtddca;
 				track_temp.mtdnSigmaPi=temptrkVecIter->mtdnSigmaPi;	
-				track_temp.trackId=temptrkVecIter.trackId;
+				track_temp.trackId=temptrkVecIter->trackId;
 				track_temp.mtdBL.push_back(projbklgIter);
 				track_temp.mtdmod.push_back(projmoduleIter);
 				track_temp.mtdProjphi.push_back(projphi);
 				track_temp.mtdProjZ.push_back(projz);
 				track_temp.mtdProjLength.push_back(projlength);
-				track_temp.mtdProjtof2Mtd.push_back(tof2Mtd);
+				track_temp.mtdtof2Mtd.push_back(tof2Mtd);
 				track_temp.trackFlag=trackFlag;
 				track_temp.trackNeboileftFlag=trackNeboileftFlag;
 				track_temp.trackNeboirightFlag=trackNeboirightFlag;
@@ -968,8 +1070,9 @@ void Hitsdist(mtdEvent* event,mtdCellHitVector& trackVec)
 			trackIdC_sort.clear();
 			trackIdR_sort.clear();
 			trackIdL_sort.clear();
-			temptrkVec=erasetemptrk;
+			temptrkVec_temp=erasetemptrkVec_temp;
 		}//endl of the track loop
+*/
 	//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 	//   loop over alll tracks; sort the information of two tracks extrapolations to the same module
 	//   phi difference(phi - cellcenter)
@@ -1059,11 +1162,12 @@ void bookHistograms()
 	hTrackMatchHits = new TH1D("TrackMatchHits","one track mathc with # hits",10,1,11);	
 	hRefmultvsTracks = new TH2D("RefmultvsTracks","# match vs refmult;refmult;# of tracks matched one hit",100,0,400,10,0,10);
 	hRefmult = new TH1D("Refmult","refmult;refmult;",400,0,400);
-	hTracksPerHit = new TH1D("TracksPerHit","# of tracks matched with hit;# tracks matched with the same hit",10,0,10);
-	hHits = new TH1D("Hits","# of hits per event",10,0,10);
-	hHits_cut = new TH1D("Hits_cut","# of hits per event after time diff cut",10,0,10);
-	hTracks = new TH1D("Tracks","# of tracs event after cut",60,0,60);
-	hTracksMatchNumber = new TH1D("TracksMatchNumber","# of tracs event after cut",10,0,10);
+	hTracksPerHit = new TH1D("TracksPerHit","# of tracks matched with hit;# tracks matched with the same hit",50,0,50);
+	hTracksPerHit_sort = new TH1D("TracksPerHit_sort","# of tracks matched with hit;# tracks matched with the same hit",50,0,50);
+	hHits = new TH1D("Hits","# of hits per event",100,0,100);
+	hHits_cut = new TH1D("Hits_cut","# of hits per event after time diff cut",100,0,100);
+	hTracks = new TH1D("Tracks","# of tracs event after cut",700,0,700);
+	hTracksMatchNumber = new TH1D("TracksMatchNumber","# of tracs event after cut",100,0,100);
 	hHitDis = new TH2D("hHitDis","Hits distribution;;bkleg_diff*60+moudle_diff*12+cell_diff",10,0,10,360,-180,180);
 	hHitDis_cut = new TH2D("hHitDis_cut","hitdis after matching",10,0,10,360,-180,180);
 	htracksvsHits = new TH2D("htracksvsHits","# of tracks vs total hits;# of tracks;hits",10,0,10,10,0,10);
@@ -1093,12 +1197,15 @@ void bookHistograms()
 	hTrackprojZdiffvsEta = new TH2D("hTrackprojZdiffvsEta","zdiff vs eta;eta,zdiff",20,-1,1,3000,-150,150);
 	hTrackprojZdiffvsPt = new TH2D("hTrackprojZdiffvsPt","zdiff vs p_{T};p_{T} GeV/c,zdiff",300,0,30,3000,-150,150);
 	hHitsMulti = new TH2D("hHitsMulti","hits surranding hits distrubution;;hits",10,0,10,100,0,100);
+	hTracksSur = new TH2D("hTracksSur","tracks surranding trackss distrubution;;# 0f tracks",10,0,10,400,0,400);
+	hMatchSource = new TH1D("hMatchSource","hMatchSource",20,0,20);
 }
 void writeHistograms(char* outFile)
 {
 	char buf[1024];
 	sprintf(buf,"%s.histo.root",outFile);
 	TFile f(buf,"recreate");
+	hMatchSource->Write();
 	hVertexXY->Write();
 	hVzDiff->Write();
 	hNumberofMatchHits->Write();
@@ -1113,6 +1220,7 @@ void writeHistograms(char* outFile)
 	hMatchEtavsPhi->Write();
 	hTrackMatchHits->Write();
 	hTracksPerHit->Write();
+	hTracksPerHit_sort->Write();
 	hRefmultvsTracks->Write();
 	hRefmult->Write();
 	hHits->Write();
@@ -1148,6 +1256,7 @@ void writeHistograms(char* outFile)
 	hTrackprojZdiffvsEta->Write();
 	hTrackprojZdiffvsPt->Write();
 	hHitsMulti->Write();
+	hTracksSur->Write();
 } 
 void bookmtdRelatTree(char* outFile)
 {
@@ -1163,7 +1272,7 @@ bool validHits(StMtdHits& hit)
 	float totEast = hit.totEast;
 	float TdiffWest = hit.TdiffWest;
 	float TdiffEast = hit.TdiffEast;
-
+	cout<<bkleg<<" "<<module<<endl;
 	if(TdiffWest>(TacdiffWestUp[bkleg][module])||TdiffWest<(TacdiffWestbottom[bkleg][module])||(TdiffEast>TacdiffEastUp[bkleg][module])||TdiffWest<(TacdiffEastbottom[bkleg][module]))return kFALSE;
 	return kTRUE;
 }
